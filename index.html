@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'" />
+    <title>Focus Lock</title>
+    <style>
+      :root {
+        --bg: #000000;
+        --panel: #000000;
+        --panel-2: #0a0a0a;
+        --line: #2a2a2a;
+        --fg: #ffffff;
+        --muted: #7a7a7a;
+        --accent: #d71921;
+        --accent-ink: #ffffff;
+        --danger: #d71921;
+        --ok: #ffffff;
+        --radius: 0px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+        min-height: 100vh;
+      }
+      .wrap { max-width: 760px; margin: 0 auto; padding: 56px 24px 80px; }
+      header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 28px; }
+      h1 { font-size: 14px; letter-spacing: .34em; text-transform: uppercase; margin: 0; font-weight: 400; }
+      h1 span { color: var(--accent); }
+      .card + .card, .grid2 .card { }
+      .env { font-size: 12px; color: var(--muted); font-family: ui-monospace, monospace; }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; margin-bottom: 18px; }
+      .label { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; }
+      button {
+        font: inherit; cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+        background: #000; color: var(--fg); padding: 10px 16px; transition: .12s; text-transform: uppercase; letter-spacing: .12em; font-size: 12px;
+      }
+      button:hover { border-color: var(--fg); }
+      button.primary { background: var(--fg); color: #000; border-color: var(--fg); font-weight: 700; }
+      button.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+      button.chip.on { background: var(--fg); color: #000; border-color: var(--fg); font-weight: 700; }
+      input, textarea {
+        font: inherit; background: #000; color: var(--fg); border: 1px solid var(--line);
+        border-radius: 10px; padding: 10px 12px; width: 100%;
+      }
+      textarea { min-height: 120px; font-family: ui-monospace, monospace; font-size: 13px; line-height: 1.6; resize: vertical; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+      .timer { font-size: 76px; font-weight: 400; letter-spacing: .04em; line-height: 1; }
+      .timer.idle { color: var(--muted); }
+      .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin-bottom: 14px; }
+      .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--muted); }
+      .dot.live { background: var(--accent); }
+      .warn { background: #000; border: 1px solid var(--accent); color: var(--accent); font-size: 13px; padding: 12px 14px; border-radius: 10px; margin-bottom: 18px; }
+      .hint { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+      .modal { position: fixed; inset: 0; background: rgba(5,6,8,.78); display: none; align-items: center; justify-content: center; }
+      .modal.open { display: flex; }
+      .modal .card { width: 380px; margin: 0; }
+      .pin { letter-spacing: .5em; text-align: center; font-size: 22px; font-family: ui-monospace, monospace; }
+      .err { color: var(--danger); font-size: 13px; min-height: 18px; margin-top: 8px; }
+      @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <h1>Focus<span>Lock</span></h1>
+        <div class="env" id="env">detecting…</div>
+      </header>
+
+      <div id="warn" class="warn" style="display:none"></div>
+
+      <div class="card">
+        <div class="status"><span class="dot" id="dot"></span><span id="statusText">Idle</span></div>
+        <div class="timer idle" id="timer">00:00:00</div>
+        <div class="row" style="margin-top:22px" id="presets"></div>
+        <div class="row" style="margin-top:12px; align-items:center">
+          <input id="custom" type="number" min="1" max="1440" placeholder="Custom minutes" style="max-width:180px" />
+          <button class="primary" id="startBtn">Start focus session</button>
+          <button class="danger" id="stopBtn" style="display:none">Stop session</button>
+        </div>
+        <div class="hint">Stopping before the timer ends requires your PIN. Quitting the app does not lift the block.</div>
+      </div>
+
+      <div class="grid2">
+        <div class="card">
+          <div class="label">Blocked websites</div>
+          <textarea id="domains" spellcheck="false"></textarea>
+          <div class="hint">One domain per line. Blocked in every browser via the system hosts file.</div>
+        </div>
+        <div class="card">
+          <div class="label">Blocked desktop apps</div>
+          <textarea id="apps" spellcheck="false"></textarea>
+          <div class="hint">One process name per line. Matching apps are closed every few seconds during a session.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="label">Security PIN</div>
+        <div class="row" style="align-items:center">
+          <input id="pinSet" class="pin" maxlength="6" inputmode="numeric" placeholder="••••" style="max-width:200px" />
+          <button id="savePin">Save PIN</button>
+          <span class="hint" id="pinState" style="margin:0"></span>
+        </div>
+        <div class="hint">4 or 6 digits. Required to end a session early.</div>
+      </div>
+    </div>
+
+    <div class="modal" id="modal">
+      <div class="card">
+        <div class="label">Enter PIN to stop early</div>
+        <input id="pinCheck" class="pin" maxlength="6" inputmode="numeric" placeholder="••••" />
+        <div class="err" id="pinErr"></div>
+        <div class="row" style="margin-top:8px">
+          <button class="primary" id="confirmStop">Unlock &amp; stop</button>
+          <button id="cancelStop">Keep focusing</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

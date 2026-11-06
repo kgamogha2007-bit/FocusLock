@@ -1,0 +1,15 @@
+{
+  "name": "focus-lock",
+  "productName": "Focus Lock",
+  "version": "1.0.0",
+  "description": "Timer-locked website and desktop app blocker with PIN-protected early exit",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Focus Lock",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.4.1"
+  }
+}
